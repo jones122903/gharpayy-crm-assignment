@@ -1,8 +1,14 @@
 // Calls dashboard — why we called, what happened, and how much of it was waste.
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useCallEngine } from "@/callengine/store";
-import { MOVEMENT_LABEL, agendaDef, type MovementClass } from "@/callengine/types";
+import { fetchCallRecords } from "@/callengine/sync";
+import {
+  MOVEMENT_LABEL,
+  agendaDef,
+  type CallRecord,
+  type MovementClass,
+} from "@/callengine/types";
 
 const Block = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="rounded-xl border bg-card p-3">
@@ -27,7 +33,42 @@ const Bar = ({ label, value, total }: { label: string; value: number; total: num
 };
 
 export function CallIntelligence() {
-  const records = useCallEngine((s) => s.records);
+  const localRecords = useCallEngine((s) => s.records);
+
+  const [remoteRecords, setRemoteRecords] = useState<CallRecord[]>([]);
+  const [remoteLoaded, setRemoteLoaded] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchCallRecords()
+      .then((records) => {
+        if (cancelled) return;
+
+        setRemoteRecords(records);
+        setRemoteLoaded(true);
+        setRemoteError(null);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+
+        setRemoteLoaded(true);
+        setRemoteError(
+          error instanceof Error
+            ? error.message
+            : "Could not load central call history",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const records = remoteLoaded && !remoteError
+    ? remoteRecords
+    : localRecords;
 
   const data = useMemo(() => {
     const today = records.filter((r) => new Date(r.ts).toDateString() === new Date().toDateString());
@@ -59,14 +100,29 @@ export function CallIntelligence() {
     return { today, connected, byAgenda, byMovement, waste, byPerson, priceQuoted, toursScheduled, liked, disliked };
   }, [records]);
 
-  if (data.today.length === 0)
-    return (
-      <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">
-        No calls logged through the conversation engine today yet.
+ return (
+  <div className="space-y-3">
+    <div className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
+      <div>
+        <div className="text-xs font-semibold">M-POWER Call Intelligence</div>
+        <div className="text-[10px] text-muted-foreground">
+          {remoteLoaded && !remoteError
+            ? "Central call history loaded from hosted backend"
+            : remoteError
+              ? "Backend unavailable — showing this device's saved calls"
+              : "Loading central call history…"}
+        </div>
       </div>
-    );
 
-  return (
+      <Badge variant={remoteLoaded && !remoteError ? "secondary" : "outline"}>
+        {remoteLoaded && !remoteError
+          ? "Backend synced"
+          : remoteError
+            ? "Local fallback"
+            : "Syncing"}
+      </Badge>
+    </div>
+
     <div className="grid gap-3 lg:grid-cols-2">
       <Block title="Calls today">
         <div className="flex gap-6">
@@ -126,7 +182,8 @@ export function CallIntelligence() {
             ))}
           </tbody>
         </table>
-      </Block>
+            </Block>
     </div>
+  </div>
   );
 }

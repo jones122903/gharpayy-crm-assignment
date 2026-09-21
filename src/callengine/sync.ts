@@ -34,12 +34,45 @@ export async function pushCallRecord(r: CallRecord): Promise<{ ok: boolean; erro
 }
 
 /** Calls stored centrally — used by the admin view and by the operator's own history. */
-export async function fetchCallRecords(limit = 200) {
+export async function fetchCallRecords(limit = 200): Promise<CallRecord[]> {
   const { data, error } = await supabase
     .from("call_records")
     .select("*")
     .order("called_at", { ascending: false })
     .limit(limit);
+
   if (error) throw error;
-  return data ?? [];
+
+  return (data ?? []).map((row) => ({
+    id: row.client_id ?? row.id,
+    ts: row.called_at,
+    ulid: row.lead_ulid ?? "",
+    canonicalId: row.canonical_id ?? undefined,
+    name: row.customer_name ?? "Unknown customer",
+
+    operatorId: row.operator_id ?? "",
+    operatorName: row.operator_name ?? "Unknown operator",
+
+    agenda: row.agenda as CallRecord["agenda"],
+    agendaSource: row.agenda_source as CallRecord["agendaSource"],
+    outcome: row.outcome as CallRecord["outcome"],
+    durationSec: row.duration_sec ?? 0,
+
+    capture: (row.capture ?? {}) as unknown as CallRecord["capture"],
+
+    movement: (row.movement ?? "none") as CallRecord["movement"],
+
+    messageNow: row.message_now ?? "",
+    messageSent: row.message_sent ?? false,
+
+    followUp: (row.follow_up ?? {}) as unknown as CallRecord["followUp"],
+    followUpState: row.follow_up_state as CallRecord["followUpState"],
+
+    nextStep: (row.next_step ?? {}) as unknown as CallRecord["nextStep"],
+    stageAfter: row.stage_after ?? "",
+
+    waste: Array.isArray(row.waste)
+      ? (row.waste as string[])
+      : [],
+  }));
 }
