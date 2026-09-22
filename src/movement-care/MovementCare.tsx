@@ -18,12 +18,13 @@ import { NEXT_ACTION_LABEL, OPERATORS, type CallResult, type NextActionKind } fr
 import { toast } from "sonner";
 import { CARE_PLAYBOOKS, GOAL_TITLE, ROUND_COPY, type CareGoal, type CareRole, type CareRound } from "./playbooks";
 import { ManualDraftPanel, type ManualCandidate, type NewLeadInput } from "./ManualDraft";
-import { useIdentityStore } from "@/lib/lead-identity/store";
 import { actualForGoal, callStats, queueForGoal, resultStatus } from "./results";
 import { optionById, propertyOptions, propertyProgress, rankedForCustomer } from "./properties";
 import { todaysCommitment, useMovementCare } from "./store";
 import { debriefMessage } from "./debrief";
 import { CheckpointPanel } from "./CheckpointPanel";
+import { createCareNextAction } from "@/lib/flow-os/revenue-api";
+import { useIdentityStore } from "@/lib/lead-identity/store";
 
 const GOAL_TONE: Record<CareGoal, string> = {
   FIND: "border-info/40 bg-info/10 text-info",
@@ -45,11 +46,15 @@ function dueForGoal(goal: CareGoal) {
 }
 
 export function MovementCare() {
-  useEffect(() => { seedMovement(); }, []);
+  useEffect(() => {
+    seedMovement();
+  }, []);
+
   const { list, nameOf, me } = useMovementSync();
   const events = useMovement((state) => state.events);
   const setActor = useMovement((state) => state.setActor);
   const mv = useMovement();
+
   const storedCommitment = useMovementCare((state) => state.commitment);
   const commitment = todaysCommitment(storedCommitment);
   const reports = useMovementCare((state) => state.reports);
@@ -200,21 +205,67 @@ export function MovementCare() {
     toast.success(`Demo draft built — ${Math.min(picked.size, manualSize)} leads picked by hand`);
   };
 
-  const acceptDraft = () => {
-    if (!commitment || !selectedState) return;
-    const code = selectedState.waDraft ?? (activeGoal === "CLOSE" ? "D1" : activeGoal === "SCHEDULE" ? "D2" : "D3");
-    mv.draft(selectedState.ulid, code);
-    mv.attemptClaim(selectedState.ulid, activeGoal === "SCHEDULE" || activeGoal === "COMPLETE" ? "tour" : activeGoal === "CLOSE" ? "closing" : "work", stage.outcome);
-    mv.setNextAction(selectedState.ulid, {
-      kind: GOAL_NEXT[activeGoal],
-      dueAt: dueForGoal(activeGoal),
-      ownerId: selectedState.primaryOwnerId || mv.actor.id,
-      ownerName: selectedState.primaryOwnerId ? selectedState.primaryOwnerName : mv.actor.name,
-      note: `${activeGoal}: ${stage.outcome}`,
-    });
-    setDebriefFor({ ulid: selectedState.ulid, code });
-    toast.success(`${code} done — write the wrap-up and send it on WhatsApp`);
-  };
+  const acceptDraft = async () => {
+  if (!commitment || !selectedState) return;
+
+  const code =
+    selectedState.waDraft ??
+    (activeGoal === "CLOSE" ? "D1" : activeGoal === "SCHEDULE" ? "D2" : "D3");
+
+  const dueAt = dueForGoal(activeGoal);
+  const kind = GOAL_NEXT[activeGoal];
+  const note = `${activeGoal}: ${stage.outcome}`;
+
+  // Keep the existing Movement CARE behaviour.
+  mv.draft(selectedState.ulid, code);
+
+  mv.attemptClaim(
+    selectedState.ulid,
+    activeGoal === "SCHEDULE" || activeGoal === "COMPLETE"
+      ? "tour"
+      : activeGoal === "CLOSE"
+        ? "closing"
+        : "work",
+    stage.outcome,
+  );
+
+  mv.setNextAction(selectedState.ulid, {
+    kind,
+    dueAt,
+    ownerId: selectedState.primaryOwnerId || mv.actor.id,
+    ownerName: selectedState.primaryOwnerId
+      ? selectedState.primaryOwnerName
+      : mv.actor.name,
+    note,
+  });
+
+  // Also persist the action to the hosted CRM.
+  try {
+  const syncResult = await createCareNextAction({
+    phone: nameOf.get(selectedState.ulid)?.phone ?? "",
+    kind,
+    dueAt,
+    notes: note,
+  });
+
+  if (syncResult.synced) {
+    toast.success("Next action synced to hosted CRM");
+  } else {
+    console.info(
+      "Movement CARE: local/demo lead — next action kept in local Movement state.",
+    );
+  }
+} catch (error) {
+  console.error("Movement CARE backend sync failed:", error);
+
+  toast.error(
+    "Next action saved locally, but backend sync failed.",
+  );
+}
+
+  setDebriefFor({ ulid: selectedState.ulid, code });
+  toast.success(`${code} done — write the wrap-up and send it on WhatsApp`);
+};
 
   const startEmptyDraft = () => {
     startRollingDraft(manualSize);

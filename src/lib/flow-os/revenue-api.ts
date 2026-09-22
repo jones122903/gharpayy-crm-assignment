@@ -271,6 +271,61 @@ async function findExistingLead(phoneE164: string): Promise<FlowLeadRow | null> 
   return ((candidates ?? []) as FlowLeadRow[]).find((lead) => lead.phone?.replace(/\D/g, "").slice(-10) === digits) ?? null;
 }
 
+export async function createCareNextAction(input: {
+  phone: string;
+  kind: string;
+  dueAt: string;
+  notes: string;
+}) {
+  const phoneE164 = normalizePhoneIN(input.phone);
+  const lead = await findExistingLead(phoneE164);
+
+  if (!lead) {
+  return {
+    action: null,
+    leadId: null,
+    operatorName: null,
+    synced: false as const,
+    reason: "local-demo-lead" as const,
+  };
+}
+
+  const operator = await getCurrentFlowOperator();
+
+  const { data: action, error: actionError } = await db
+    .from("next_actions")
+    .insert({
+      lead_id: lead.id,
+      owner_id: operator.id,
+      kind: input.kind,
+      due_at: input.dueAt,
+      notes: input.notes,
+      source: "movement_care",
+    })
+    .select("*")
+    .single();
+
+  if (actionError) throw actionError;
+
+  const { error: timelineError } = await db.from("lead_timeline").insert({
+    lead_id: lead.id,
+    activity: "movement_care_next_action",
+    actor: operator.name,
+    next_action: input.kind,
+    deadline: input.dueAt,
+    detail: input.notes,
+  });
+
+  if (timelineError) throw timelineError;
+
+  return {
+  action,
+  leadId: lead.id,
+  operatorName: operator.name,
+  synced: true as const,
+};
+}
+
 async function latestObservationForIdentity(phoneE164: string) {
   if (!phoneE164) return null;
   const { data } = await db
