@@ -15,6 +15,7 @@ import {
   useCommitments, openCommitmentFor, commitmentsFor, promiseClose, markKept,
   hoursLeft, isExpired, dueFromWindow,
 } from "@/lib/commitments/store";
+import { syncClosingPromise } from "@/lib/flow-os/revenue-api";
 
 interface Props {
   leadId: string;
@@ -75,18 +76,59 @@ export function CloseCommitButton({ leadId, leadName, leadPhone = "", actorName 
   const strength = promiseStrength({ windowId, timeOfDay, customDate, steps, changeCount: live?.changeCount ?? 0 });
   const flags = live ? riskFlags(live) : [];
 
-  const submit = () => {
-    if (windowId === "custom" && !customDate) {
-      toast.error("Pick the exact date you will close this");
-      return;
-    }
-    promiseClose({ leadId, leadName, leadPhone, windowId, customDate, timeOfDay, steps, note, by: actorName });
-    toast.success(isChange ? `Promise moved — ${def.short}` : `Committed: ${leadName} closes ${fmt(previewDue)}`, {
-      description: steps.length ? `${steps.length} step${steps.length === 1 ? "" : "s"} on your plan` : "No steps picked — add them when you know the plan.",
+  const submit = async () => {
+  if (windowId === "custom" && !customDate) {
+    toast.error("Pick the exact date you will close this");
+    return;
+  }
+
+  // Preserve the existing Closing Desk workflow first.
+  promiseClose({
+    leadId,
+    leadName,
+    leadPhone,
+    windowId,
+    customDate,
+    timeOfDay,
+    steps,
+    note,
+    by: actorName,
+  });
+
+  try {
+    const syncResult = await syncClosingPromise({
+      phone: leadPhone,
+      dueAt: previewDue,
+      steps,
+      note,
     });
-    setNote("");
-    setOpen(false);
-  };
+
+    if (syncResult.synced) {
+      toast.success("Closing promise synced to hosted CRM");
+    } else {
+      console.info(
+        "Closing Desk: local/demo lead — promise kept in local Closing state.",
+      );
+    }
+  } catch (error) {
+    console.error("Closing Desk backend sync failed:", error);
+    toast.error("Promise saved locally, but backend sync failed.");
+  }
+
+  toast.success(
+    isChange
+      ? `Promise moved — ${def.short}`
+      : `Committed: ${leadName} closes ${fmt(previewDue)}`,
+    {
+      description: steps.length
+        ? `${steps.length} step${steps.length === 1 ? "" : "s"} on your plan`
+        : "No steps picked — add them when you know the plan.",
+    },
+  );
+
+  setNote("");
+  setOpen(false);
+};
 
   // ⌘/Ctrl+Enter commits — the promise should cost one keystroke, not five clicks.
   useEffect(() => {

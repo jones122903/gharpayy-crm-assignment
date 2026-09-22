@@ -254,7 +254,7 @@ export function parseStructuredChatRows(text: string, screenshotKey = "pasted-1"
   });
 }
 
-async function findExistingLead(phoneE164: string): Promise<FlowLeadRow | null> {
+export async function findExistingLead(phoneE164: string): Promise<FlowLeadRow | null> {
   if (!phoneE164) return null;
   const { data } = await db
     .from("leads")
@@ -324,6 +324,66 @@ export async function createCareNextAction(input: {
   operatorName: operator.name,
   synced: true as const,
 };
+}
+
+export async function syncClosingPromise(input: {
+  phone: string;
+  dueAt: string;
+  steps: string[];
+  note?: string;
+}) {
+  const phoneE164 = normalizePhoneIN(input.phone);
+  const lead = await findExistingLead(phoneE164);
+
+  // Closing Desk contains deterministic demo customers.
+  // Never create a hosted CRM lead just to sync a demo commitment.
+  if (!lead) {
+    return {
+      synced: false as const,
+      reason: "local-demo-lead" as const,
+    };
+  }
+
+  const operator = await getCurrentFlowOperator();
+  const detail = [
+    input.steps.length ? `Steps: ${input.steps.join(" · ")}` : "",
+    input.note?.trim() ? `Note: ${input.note.trim()}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  const { data: action, error: actionError } = await db
+    .from("next_actions")
+    .insert({
+      lead_id: lead.id,
+      owner_id: operator.id,
+      kind: "closing_promise",
+      due_at: input.dueAt,
+      notes: detail || "Closing promise",
+      source: "closing_desk",
+    })
+    .select("*")
+    .single();
+
+  if (actionError) throw actionError;
+
+  const { error: timelineError } = await db.from("lead_timeline").insert({
+    lead_id: lead.id,
+    activity: "closing_promise_created",
+    actor: operator.name,
+    next_action: "Close booking",
+    deadline: input.dueAt,
+    detail: detail || "Closing promise committed",
+  });
+
+  if (timelineError) throw timelineError;
+
+  return {
+    synced: true as const,
+    leadId: lead.id,
+    operatorName: operator.name,
+    action,
+  };
 }
 
 async function latestObservationForIdentity(phoneE164: string) {
