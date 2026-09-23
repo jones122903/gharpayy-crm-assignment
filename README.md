@@ -1,26 +1,101 @@
-# techgg aabc
+# Gharpayy Lead Management CRM — Hiring Assignment
 
-remove Property Command Center random data of property command CC. Also fix the lead parser from copy-paste to direct lead. Make it very great.
+## Overview
+This repository contains my implementation of the Gharpayy Lead Management
+CRM hiring assignment.
 
-This project was built with [Lovable](https://lovable.dev).
+### Selected Modules
+1. M-POWER Call
+2. Movement CARE
+3. Closing Desk
 
-**Live app**: https://lead-straightener.lovable.app
+## Architecture
 
-## Build with Lovable
+React + TypeScript
+        ↓
+Supabase
+        ↓
+PostgreSQL
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/9647beb8-31db-47f9-87d7-25086abe2830).
+Frontend/Application:
+- React
+- TypeScript
+- TanStack Router / TanStack Start
+- Zustand
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+Backend / Data:
+- Supabase
+- PostgreSQL
+- Supabase Auth + RLS
+- Database migrations / Drizzle tooling
 
-## Development
+## Module 1 — M-POWER Call
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+### Before
+M-POWER call records were written to hosted Supabase, but Admin Call
+Intelligence read only browser-local Zustand records. Calls completed in one
+browser/device were therefore not visible in another admin session.
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+### Improvement
+Admin Call Intelligence now retrieves M-POWER records from Supabase while
+retaining local Zustand as a fallback if the backend fetch fails.
+
+### Result
+M-POWER Call
+→ Supabase call_records
+→ Admin Call Intelligence
+
+Hosted persistence was verified across separate browser sessions.
+
+## Module 2 — Movement CARE
+
+### Before
+Movement CARE next actions were stored only in browser-local Movement state.
+
+### Improvement
+CARE now attempts to match the customer to an existing hosted CRM lead using
+normalized phone numbers.
+
+For matched leads:
+- next action and deadline are written to `next_actions`
+- an audit event is written to `lead_timeline`
+
+Demo-only/unmatched customers remain local instead of creating fake CRM data.
+
+## Module 3 — Closing Desk
+
+### Before
+Closing Desk commitments were stored only in browser-local state.
+
+### Improvement
+Closing Desk now attempts to match the customer to an existing hosted CRM lead
+using normalized phone numbers.
+
+For matched leads:
+- closing action and deadline are persisted to `next_actions`
+- a closing promise audit event is written to `lead_timeline`
+
+Unmatched deterministic demo customers remain local to preserve data integrity.
+
+## Operator Authentication
+
+Added an Operator Login entry point so authenticated operators can use
+RLS-protected Supabase operations.
+
+## Data Integrity
+
+The implementation intentionally does not create fake hosted CRM leads when
+demo customers cannot be matched to an existing Supabase lead.
+
+## Run Locally
+
+npm install
 npm run dev
-```
+
+## Build
+
+npm run build
+
+## Live Assignment
+
+Deployment URL: [add after deployment]
