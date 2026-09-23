@@ -47,7 +47,7 @@ export async function fetchCallRecords(limit = 200): Promise<CallRecord[]> {
     id: row.client_id ?? row.id,
     ts: row.called_at,
     ulid: row.lead_ulid ?? "",
-    canonicalId: row.canonical_id ?? undefined,
+    canonicalId: row.canonical_id ?? "",
     name: row.customer_name ?? "Unknown customer",
 
     operatorId: row.operator_id ?? "",
