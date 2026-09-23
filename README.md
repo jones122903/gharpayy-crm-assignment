@@ -98,4 +98,4 @@ npm run build
 
 ## Live Assignment
 
-Deployment URL: [add after deployment]
+Deployment URL: https://gharpayy-crm-assignment-eight.vercel.app
