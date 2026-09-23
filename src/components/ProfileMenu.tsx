@@ -123,6 +123,12 @@ export function ProfileMenu() {
         <DropdownMenuSeparator />
 
         <DropdownMenuItem asChild>
+          <Link to="/operator">
+            <UserRound className="mr-2 h-4 w-4" /> Operator login
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
           <Link to="/myt/settings"><Settings className="mr-2 h-4 w-4" /> Settings</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

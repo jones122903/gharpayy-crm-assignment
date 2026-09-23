@@ -24,6 +24,7 @@ import { Route as RevenueRouteImport } from './routes/revenue'
 import { Route as QueueRouteImport } from './routes/queue'
 import { Route as ProductivityRouteImport } from './routes/productivity'
 import { Route as OsRouteImport } from './routes/os'
+import { Route as OperatorRouteImport } from './routes/operator'
 import { Route as MymovesRouteImport } from './routes/mymoves'
 import { Route as MyWorkRouteImport } from './routes/my-work'
 import { Route as MovementSplitRouteImport } from './routes/movement-split'
@@ -220,6 +221,11 @@ const ProductivityRoute = ProductivityRouteImport.update({
 const OsRoute = OsRouteImport.update({
   id: '/os',
   path: '/os',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperatorRoute = OperatorRouteImport.update({
+  id: '/operator',
+  path: '/operator',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MymovesRoute = MymovesRouteImport.update({
@@ -871,6 +877,7 @@ export interface FileRoutesByFullPath {
   '/movement-split': typeof MovementSplitRoute
   '/my-work': typeof MyWorkRoute
   '/mymoves': typeof MymovesRoute
+  '/operator': typeof OperatorRoute
   '/os': typeof OsRoute
   '/productivity': typeof ProductivityRoute
   '/queue': typeof QueueRoute
@@ -1009,6 +1016,7 @@ export interface FileRoutesByTo {
   '/movement-split': typeof MovementSplitRoute
   '/my-work': typeof MyWorkRoute
   '/mymoves': typeof MymovesRoute
+  '/operator': typeof OperatorRoute
   '/os': typeof OsRoute
   '/productivity': typeof ProductivityRoute
   '/queue': typeof QueueRoute
@@ -1148,6 +1156,7 @@ export interface FileRoutesById {
   '/movement-split': typeof MovementSplitRoute
   '/my-work': typeof MyWorkRoute
   '/mymoves': typeof MymovesRoute
+  '/operator': typeof OperatorRoute
   '/os': typeof OsRoute
   '/productivity': typeof ProductivityRoute
   '/queue': typeof QueueRoute
@@ -1289,6 +1298,7 @@ export interface FileRouteTypes {
     | '/movement-split'
     | '/my-work'
     | '/mymoves'
+    | '/operator'
     | '/os'
     | '/productivity'
     | '/queue'
@@ -1427,6 +1437,7 @@ export interface FileRouteTypes {
     | '/movement-split'
     | '/my-work'
     | '/mymoves'
+    | '/operator'
     | '/os'
     | '/productivity'
     | '/queue'
@@ -1565,6 +1576,7 @@ export interface FileRouteTypes {
     | '/movement-split'
     | '/my-work'
     | '/mymoves'
+    | '/operator'
     | '/os'
     | '/productivity'
     | '/queue'
@@ -1705,6 +1717,7 @@ export interface RootRouteChildren {
   MovementSplitRoute: typeof MovementSplitRoute
   MyWorkRoute: typeof MyWorkRoute
   MymovesRoute: typeof MymovesRoute
+  OperatorRoute: typeof OperatorRoute
   OsRoute: typeof OsRoute
   ProductivityRoute: typeof ProductivityRoute
   QueueRoute: typeof QueueRoute
@@ -1871,6 +1884,13 @@ declare module '@tanstack/react-router' {
       path: '/os'
       fullPath: '/os'
       preLoaderRoute: typeof OsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operator': {
+      id: '/operator'
+      path: '/operator'
+      fullPath: '/operator'
+      preLoaderRoute: typeof OperatorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mymoves': {
@@ -2902,6 +2922,7 @@ const rootRouteChildren: RootRouteChildren = {
   MovementSplitRoute: MovementSplitRoute,
   MyWorkRoute: MyWorkRoute,
   MymovesRoute: MymovesRoute,
+  OperatorRoute: OperatorRoute,
   OsRoute: OsRoute,
   ProductivityRoute: ProductivityRoute,
   QueueRoute: QueueRoute,
